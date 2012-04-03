@@ -1259,7 +1259,8 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
                 CameraSettings.KEY_RECORD_LOCATION,
                 CameraSettings.KEY_POWER_SHUTTER,
                 CameraSettings.KEY_PICTURE_SIZE,
-                CameraSettings.KEY_FOCUS_MODE};
+                CameraSettings.KEY_FOCUS_MODE,
+                CameraSettings.KEY_FORCE_PREVIEW};
 
         CameraPicker.setImageResourceId(R.drawable.ic_switch_photo_facing_holo_light);
         mIndicatorControlContainer.initialize(this, mPreferenceGroup,
@@ -1788,13 +1789,11 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
                 // Set preview display if the surface is being created and preview
                 // was already started. That means preview display was set to null
                 // and we need to set it now.
-                boolean mPreviewOverride = SystemProperties.get(PREVIEW_PROPERTY).equalsIgnoreCase("true");  
-                if (mPreviewOverride) {  
-                    startPreview();  
-                } else {  
-                    setPreviewDisplay(holder);  
-                }  
-
+                if (forcePreview(mPreferences)) {
+                    startPreview();
+                } else {
+                    setPreviewDisplay(holder);
+                }
             }
         }
 
