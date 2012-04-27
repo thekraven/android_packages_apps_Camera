@@ -52,9 +52,10 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.MessageQueue;
 import android.os.SystemClock;
-import android.os.SystemProperties; 
+
 import android.provider.MediaStore;
 import android.util.Log;
+import android.util.FloatMath;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -98,14 +99,16 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
     private static final int CHECK_DISPLAY_ROTATION = 5;
     private static final int SHOW_TAP_TO_FOCUS_TOAST = 6;
     private static final int UPDATE_THUMBNAIL = 7;
+    private static final int FINISH_PINCH_TO_ZOOM = 8;
+    private static final int START_TOUCH_TO_FOCUS = 9;
 
     // The subset of parameters we need to update in setCameraParameters().
     private static final int UPDATE_PARAM_INITIALIZE = 1;
     private static final int UPDATE_PARAM_ZOOM = 2;
     private static final int UPDATE_PARAM_PREFERENCE = 4;
     private static final int UPDATE_PARAM_ALL = -1;
-	
-	static final String PREVIEW_PROPERTY = "ro.camera.preview"; 
+
+
 
     // When setCameraParametersWhenIdle() is called, we accumulate the subsets
     // needed to be updated in mUpdateSet.
@@ -117,12 +120,17 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
     private static final int ZOOM_START = 1;
     private static final int ZOOM_STOPPING = 2;
 
+    private static final int TOUCH_TO_FOCUS_START_DELAY = 150; // milliseconds
+
     private int mZoomState = ZOOM_STOPPED;
     private boolean mSmoothZoomSupported = false;
     private int mZoomValue;  // The current zoom value.
     private int mZoomMax;
     private int mTargetZoomValue;
     private ZoomControl mZoomControl;
+
+    private boolean mStartZoom = false;
+    private float oldDistance = 1f;
 
     private Parameters mParameters;
     private Parameters mInitialParams;
@@ -186,6 +194,8 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
     private ImageSaver mImageSaver;
 
     private CameraSound mCameraSound;
+
+    private String mStorage;
 
     private Runnable mDoSnapRunnable = new Runnable() {
         public void run() {
@@ -321,6 +331,18 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
                     mImageSaver.updateThumbnail();
                     break;
                 }
+
+                case FINISH_PINCH_TO_ZOOM: {
+                    mStartZoom = false;
+                    break;
+                }
+
+                case START_TOUCH_TO_FOCUS: {
+                    if (msg.obj != null) {
+                        mFocusManager.onTouch((MotionEvent)(msg.obj));
+                    }
+                    break;
+                }
             }
         }
     }
@@ -408,7 +430,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         MessageQueue queue = Looper.myQueue();
         queue.addIdleHandler(new MessageQueue.IdleHandler() {
             public boolean queueIdle() {
-                Storage.ensureOSXCompatible();
+                Storage.ensureOSXCompatible(mStorage);
                 return false;
             }
         });
@@ -424,7 +446,8 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         // Update last image if URI is invalid and the storage is ready.
         if ((mThumbnail == null || !Util.isUriValid(mThumbnail.getUri(), mContentResolver))
                 && mPicturesRemaining >= 0) {
-            mThumbnail = Thumbnail.getLastThumbnail(mContentResolver);
+            mThumbnail = Thumbnail.getLastThumbnail(mContentResolver,
+                Storage.generateBucketId(mStorage));
         }
         if (mThumbnail != null) {
             mThumbnailView.setBitmap(mThumbnail.getBitmap());
@@ -993,7 +1016,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
                 int height, long dateTaken, int previewWidth) {
             String title = Util.createJpegName(dateTaken);
             int orientation = Exif.getOrientation(data);
-            Uri uri = Storage.addImage(mContentResolver, title, dateTaken,
+            Uri uri = Storage.addImage(mContentResolver, mStorage, title, dateTaken,
                     loc, orientation, data, width, height);
             if (uri != null) {
                 boolean needThumbnail;
@@ -1118,6 +1141,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
         getPreferredCameraId();
+        mStorage = CameraSettings.readStorage(mPreferences);
         powerShutter(mPreferences);
         String[] defaultFocusModes = getResources().getStringArray(
                 R.array.pref_camera_focusmode_default_array);
@@ -1258,9 +1282,10 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         final String[] OTHER_SETTING_KEYS = {
                 CameraSettings.KEY_RECORD_LOCATION,
                 CameraSettings.KEY_POWER_SHUTTER,
+                CameraSettings.KEY_STORAGE,
                 CameraSettings.KEY_PICTURE_SIZE,
-                CameraSettings.KEY_FOCUS_MODE,
-                CameraSettings.KEY_FORCE_PREVIEW};
+                CameraSettings.KEY_FOCUS_MODE};
+
 
         CameraPicker.setImageResourceId(R.drawable.ic_switch_photo_facing_holo_light);
         mIndicatorControlContainer.initialize(this, mPreferenceGroup,
@@ -1336,7 +1361,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
     }
 
     private void checkStorage() {
-        mPicturesRemaining = Storage.getAvailableSpace();
+        mPicturesRemaining = Storage.getAvailableSpace(mStorage);
         if (mPicturesRemaining > Storage.LOW_STORAGE_THRESHOLD) {
             mPicturesRemaining = (mPicturesRemaining - Storage.LOW_STORAGE_THRESHOLD)
                     / Storage.PICTURE_SIZE;
@@ -1654,9 +1679,11 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
 
     @Override
     public void autoFocus() {
-        mFocusStartTime = System.currentTimeMillis();
-        mCameraDevice.autoFocus(mAutoFocusCallback);
-        setCameraState(FOCUSING);
+        if(mCameraState != SNAPSHOT_IN_PROGRESS) {
+            mFocusStartTime = System.currentTimeMillis();
+            mCameraDevice.autoFocus(mAutoFocusCallback);
+            setCameraState(FOCUSING);
+        }
     }
 
     @Override
@@ -1669,18 +1696,82 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
     // Preview area is touched. Handle touch focus.
     @Override
     public boolean onTouch(View v, MotionEvent e) {
+
         if (mPausing || mCameraDevice == null || !mFirstTimeInitialized
                 || mCameraState == SNAPSHOT_IN_PROGRESS) {
             return false;
         }
 
-        // Do not trigger touch focus if popup window is opened.
+        // Do not trigger touch focus or Pinch zoom if popup window is opened.
         if (collapseCameraControls()) return false;
 
         // Check if metering area or focus area is supported.
         if (!mFocusAreaSupported && !mMeteringAreaSupported) return false;
 
-        return mFocusManager.onTouch(e);
+        // Do Pinch zoom
+        if (e.getAction() > 1) {
+            // Remove any previous touch to focus requests
+            mHandler.removeMessages(START_TOUCH_TO_FOCUS);
+
+            switch (e.getAction() & MotionEvent.ACTION_MASK) {
+                case MotionEvent.ACTION_POINTER_DOWN:
+                   oldDistance = getDistance(e);
+                   mStartZoom = true;
+                   break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_POINTER_UP:
+                   mHandler.sendEmptyMessageDelayed(FINISH_PINCH_TO_ZOOM, 250);
+                   break;
+                case MotionEvent.ACTION_MOVE:
+                   if (mStartZoom) {
+                       float newDistance = getDistance(e);
+
+                       // Perform zoom only when preview is started and snapshot is not in
+                       // progress.
+                       if (mPausing || !isCameraIdle() || mCameraState == PREVIEW_STOPPED
+                                    || mZoomState != ZOOM_STOPPED) {
+                           break;
+                       }
+                       if ( newDistance > oldDistance + 10 && mZoomValue < mZoomMax) {
+                           mZoomValue = mZoomValue + 1;
+                           setCameraParametersWhenIdle(UPDATE_PARAM_ZOOM);
+                           mZoomControl.setZoomIndex(mZoomValue);
+                           oldDistance = newDistance;
+                       }
+                       if ( newDistance < oldDistance -10 && mZoomValue > 0) {
+                           mZoomValue = mZoomValue - 1;
+                           setCameraParametersWhenIdle(UPDATE_PARAM_ZOOM);
+                           mZoomControl.setZoomIndex(mZoomValue);
+                           oldDistance = newDistance;
+                       }
+
+                   }
+                   break;
+            }
+            return true;
+        }
+
+        // Do not trigger a focus during a pinch-to-zoom operation
+        if (mStartZoom) {
+            return false;
+        }
+
+        // Delay touch to focus for a few milliseconds in order to prevent mixups
+        // between pinch to zoom touch to focus handling
+        Message touchToFocusMessage = mHandler.obtainMessage(START_TOUCH_TO_FOCUS);
+        touchToFocusMessage.obj = MotionEvent.obtain(e);
+        mHandler.sendMessageDelayed(touchToFocusMessage, TOUCH_TO_FOCUS_START_DELAY);
+
+        return true;
+    }
+
+    // Determine the space between the two touch points
+    private float getDistance(MotionEvent e) {
+       if (e.getPointerCount() < 2)
+           return 0;
+       float x = e.getX(0) - e.getX(1);
+       float y = e.getY(0) - e.getY(1);
+       return FloatMath.sqrt(x * x + y * y);
     }
 
     @Override
@@ -1789,11 +1880,11 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
                 // Set preview display if the surface is being created and preview
                 // was already started. That means preview display was set to null
                 // and we need to set it now.
-                if (forcePreview(mPreferences)) {
-                    startPreview();
-                } else {
-                    setPreviewDisplay(holder);
-                }
+
+
+
+                setPreviewDisplay(holder);
+
             }
         }
 
@@ -1945,11 +2036,11 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
             mParameters.setAutoWhiteBalanceLock(mFocusManager.getAeAwbLock());
         }
 
-        if (mFocusAreaSupported) {
+        if (mFocusAreaSupported && mFocusManager.getFocusAreas() != null) {
             mParameters.setFocusAreas(mFocusManager.getFocusAreas());
         }
 
-        if (mMeteringAreaSupported) {
+        if (mMeteringAreaSupported && mFocusManager.getMeteringAreas() != null) {
             // Use the same area for focus and metering.
             mParameters.setMeteringAreas(mFocusManager.getMeteringAreas());
         }
@@ -2121,7 +2212,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
     }
 
     private void gotoGallery() {
-        MenuHelper.gotoCameraImageGallery(this);
+        MenuHelper.gotoCameraImageGallery(this, Storage.generateBucketId(mStorage));
     }
 
     private boolean isCameraIdle() {
@@ -2239,6 +2330,12 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         boolean recordLocation = RecordLocationPreference.get(
                 mPreferences, getContentResolver());
         mLocationManager.recordLocation(recordLocation);
+
+        String storage = CameraSettings.readStorage(mPreferences);
+        if (!storage.equals(mStorage)) {
+            mStorage = storage;
+            checkStorage();
+        }
 
         int cameraId = CameraSettings.readPreferredCameraId(mPreferences);
         if (mCameraId != cameraId) {
