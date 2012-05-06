@@ -45,6 +45,7 @@ public class CameraSettings {
     public static final String KEY_PICTURE_SIZE = "pref_camera_picturesize_key";
     public static final String KEY_JPEG_QUALITY = "pref_camera_jpegquality_key";
     public static final String KEY_FOCUS_MODE = "pref_camera_focusmode_key";
+    public static final String KEY_TIMER_MODE = "pref_camera_timer_key";
     public static final String KEY_FLASH_MODE = "pref_camera_flashmode_key";
     public static final String KEY_VIDEOCAMERA_FLASH_MODE = "pref_camera_video_flashmode_key";
     public static final String KEY_WHITE_BALANCE = "pref_camera_whitebalance_key";
@@ -184,10 +185,12 @@ public class CameraSettings {
                     flashMode, mParameters.getSupportedFlashModes());
         }
         if (focusMode != null) {
-            if (mParameters.getMaxNumFocusAreas() == 0) {
+            boolean wantsFocus = mContext.getResources().getBoolean(R.bool.wantsFocusModes)
+                || mSamsungCamSettings;
+            if (mParameters.getMaxNumFocusAreas() == 0 || wantsFocus) {
                 filterUnsupportedOptions(group,
                         focusMode, mParameters.getSupportedFocusModes());
-            } else if(!mSamsungCamSettings && !mContext.getResources().getBoolean(R.bool.wantsFocusModes)) {
+            } else {
                 // Remove the focus mode if we can use tap-to-focus
                 removePreference(group, focusMode.getKey());
             }
