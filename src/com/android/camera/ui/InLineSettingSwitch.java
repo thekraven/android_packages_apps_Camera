@@ -22,7 +22,6 @@ import com.android.camera.R;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.Button;
 import android.widget.CompoundButton;
@@ -51,9 +50,8 @@ public class InLineSettingSwitch extends InLineSettingItem {
     }
 
     @Override
-    public void initialize(ListPreference preference,
-            ViewGroup parent, OtherSettingsPopup parentPopup) {
-        super.initialize(preference, parent, parentPopup);
+    public void initialize(ListPreference preference) {
+        super.initialize(preference);
         // Add content descriptions for the increment and decrement buttons.
         mSwitch.setContentDescription(getContext().getResources().getString(
                 R.string.accessibility_switch, mPreference.getTitle()));

@@ -77,7 +77,7 @@ public class IndicatorControlBar extends IndicatorControl implements
     }
 
     public void onClick(View view) {
-        dismissSettingPopup(true);
+        dismissSettingPopup();
         // Only for the click on mSecondLevelIcon.
         mOnIndicatorEventListener.onIndicatorEvent(
                 OnIndicatorEventListener.EVENT_ENTER_SECOND_LEVEL_INDICATOR_BAR);

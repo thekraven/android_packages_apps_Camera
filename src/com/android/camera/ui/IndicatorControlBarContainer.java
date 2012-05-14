@@ -146,11 +146,11 @@ public class IndicatorControlBarContainer extends IndicatorControlContainer {
         return null;
     }
 
-    public boolean dismissSettingPopup(boolean multiLevel) {
+    public boolean dismissSettingPopup() {
         if (mIndicatorControlBar.getVisibility() == View.VISIBLE) {
-            return mIndicatorControlBar.dismissSettingPopup(multiLevel);
+            return mIndicatorControlBar.dismissSettingPopup();
         } else if (mSecondLevelIndicatorControlBar.getVisibility() == View.VISIBLE) {
-            return mSecondLevelIndicatorControlBar.dismissSettingPopup(multiLevel);
+            return mSecondLevelIndicatorControlBar.dismissSettingPopup();
         }
         return false;
     }

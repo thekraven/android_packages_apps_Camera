@@ -20,9 +20,15 @@
     <TextView android:id="@+id/title"
             style="@style/SettingItemTitle" />
 
-    <Button android:id="@+id/setting_button"
-            android:layout_weight="1"
-            android:layout_width="0dip"
-            android:layout_height="match_parent" />
+    <Button android:id="@+id/decrement"
+            style="@style/SettingKnob"
+            android:text="@string/setting_decrement" />
+
+    <TextView android:id="@+id/current_setting"
+            style="@style/SettingItemText" />
+
+    <Button android:id="@+id/increment"
+            style="@style/SettingKnob"
+            android:text="@string/setting_increment" />
 </com.android.camera.ui.InLineSettingKnob>
 

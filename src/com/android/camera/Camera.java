@@ -52,7 +52,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.MessageQueue;
 import android.os.SystemClock;
-
 import android.provider.MediaStore;
 import android.util.Log;
 import android.util.FloatMath;
@@ -108,8 +107,6 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
     private static final int UPDATE_PARAM_ZOOM = 2;
     private static final int UPDATE_PARAM_PREFERENCE = 4;
     private static final int UPDATE_PARAM_ALL = -1;
-
-
 
     // When setCameraParametersWhenIdle() is called, we accumulate the subsets
     // needed to be updated in mUpdateSet.
@@ -598,7 +595,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
             if (!Util.pointInView(e.getX(), e.getY(), popup)
                     && !Util.pointInView(e.getX(), e.getY(), mIndicatorControlContainer)
                     && !Util.pointInView(e.getX(), e.getY(), mPreviewFrame)) {
-                mIndicatorControlContainer.dismissSettingPopup(false);
+                mIndicatorControlContainer.dismissSettingPopup();
                 // Let event fall through.
             }
             return false;
@@ -1312,7 +1309,6 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
                 CameraSettings.KEY_FOCUS_MODE,
                 CameraSettings.KEY_TIMER_MODE};
 
-
         CameraPicker.setImageResourceId(R.drawable.ic_switch_photo_facing_holo_light);
         mIndicatorControlContainer.initialize(this, mPreferenceGroup,
                 mParameters.isZoomSupported(),
@@ -1321,9 +1317,9 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         mIndicatorControlContainer.setListener(this);
     }
 
-    private boolean collapseCameraControls(boolean multiLevel) {
+    private boolean collapseCameraControls() {
         if ((mIndicatorControlContainer != null)
-                && mIndicatorControlContainer.dismissSettingPopup(multiLevel)) {
+                && mIndicatorControlContainer.dismissSettingPopup()) {
             return true;
         }
         return false;
@@ -1506,7 +1502,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
 
     @Override
     public void onShutterButtonFocus(boolean pressed) {
-        if (mTimerMode && pressed || mPausing || collapseCameraControls(true) || mCameraState == SNAPSHOT_IN_PROGRESS) return;
+        if (mTimerMode && pressed || mPausing || collapseCameraControls() || mCameraState == SNAPSHOT_IN_PROGRESS) return;
 
         // Do not do focus if there is not enough storage.
         if (pressed && !canTakePicture()) return;
@@ -1555,7 +1551,8 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
             mRecordingTimeView.setVisibility(View.GONE);
             return;
         }
-        if (mPausing || collapseCameraControls(true)) return;
+
+        if (mPausing || collapseCameraControls()) return;
 
         // Do not take the picture if there is not enough storage.
         if (mPicturesRemaining <= 0) {
@@ -1673,7 +1670,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         resetScreenOn();
 
         // Clear UI.
-        collapseCameraControls(true);
+        collapseCameraControls();
         if (mSharePopup != null) mSharePopup.dismiss();
         if (mFaceView != null) mFaceView.clear();
 
@@ -1765,7 +1762,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         }
 
         // Do not trigger touch focus or Pinch zoom if popup window is opened.
-        if (collapseCameraControls(false)) return false;
+        if (collapseCameraControls()) return false;
 
         // Check if metering area or focus area is supported.
         if (!mFocusAreaSupported && !mMeteringAreaSupported) return false;
@@ -1841,7 +1838,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         if (!isCameraIdle()) {
             // ignore backs while we're taking a picture
             return;
-        } else if (!collapseCameraControls(false)) {
+        } else if (!collapseCameraControls()) {
             super.onBackPressed();
         }
     }
@@ -1866,7 +1863,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
                     // Start auto-focus immediately to reduce shutter lag. After
                     // the shutter button gets the focus, onShutterButtonFocus()
                     // will be called again but it is fine.
-                    if (collapseCameraControls(true)) return true;
+                    if (collapseCameraControls()) return true;
                     onShutterButtonFocus(true);
                     if (mShutterButton.isInTouchMode()) {
                         mShutterButton.requestFocusFromTouch();
@@ -1942,11 +1939,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
                 // Set preview display if the surface is being created and preview
                 // was already started. That means preview display was set to null
                 // and we need to set it now.
-
-
-
                 setPreviewDisplay(holder);
-
             }
         }
 
@@ -2463,7 +2456,7 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
             mZoomControl.setZoomIndex(0);
         }
         if (mIndicatorControlContainer != null) {
-            mIndicatorControlContainer.dismissSettingPopup(true);
+            mIndicatorControlContainer.dismissSettingPopup();
             CameraSettings.restorePreferences(Camera.this, mPreferences,
                     mParameters);
             mIndicatorControlContainer.reloadPreferences();

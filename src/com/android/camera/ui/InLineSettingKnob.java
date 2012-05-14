@@ -16,109 +16,119 @@
 
 package com.android.camera.ui;
 
-import android.content.Context;
-import android.util.AttributeSet;
-import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.accessibility.AccessibilityEvent;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
-import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
-import android.widget.Button;
-import android.widget.SimpleAdapter;
-
 import com.android.camera.ListPreference;
 import com.android.camera.R;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import android.content.Context;
+import android.os.Handler;
+import android.util.AttributeSet;
+import android.util.Log;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.View.OnTouchListener;
+import android.view.accessibility.AccessibilityEvent;
+import android.widget.Button;
+import android.widget.TextView;
 
-/* A knob setting control */
-// Changed to popup on CM, but retaining the name for compatibility
-public class InLineSettingKnob extends InLineSettingItem implements View.OnClickListener {
+/* A knob setting control. */
+public class InLineSettingKnob extends InLineSettingItem {
+    private final String TAG = "InLineSettingKnob";
+    private boolean mNext, mPrevious;
+    private Button mPrevButton, mNextButton;
+    private Handler mHandler;
+    // The view that shows the current selected setting. Ex: 5MP
+    private TextView mEntry;
 
-    private static final String TAG = "InLineSettingKnob";
-
-    private Button mButton;
-    private MiscSettingPopup mPopup;
-    private Animation mFadeIn, mFadeOut;
-
-    OnItemClickListener mItemClickedListener = new OnItemClickListener() {
-
-        @Override
-        public void onItemClick(AdapterView<?> parent, View view,
-                int index, long id) {
-            changeIndex(index);
-            dismiss(true);
+    private final Runnable mRunnable = new Runnable() {
+        public void run() {
+            if (mNext) {
+                if (changeIndex(mIndex - 1)) {
+                    mHandler.postDelayed(this, 100);
+                }
+            } else if (mPrevious) {
+                if (changeIndex(mIndex + 1)) {
+                    mHandler.postDelayed(this, 100);
+                }
+            }
         }
-
     };
 
     public InLineSettingKnob(Context context, AttributeSet attrs) {
         super(context, attrs);
-        mFadeIn = AnimationUtils.loadAnimation(context, R.anim.setting_popup_grow_fade_in);
-        mFadeOut = AnimationUtils.loadAnimation(context, R.anim.setting_popup_shrink_fade_out);
+        mHandler = new Handler();
     }
+
+    OnTouchListener mNextTouchListener = new OnTouchListener() {
+        public boolean onTouch(View v, MotionEvent event) {
+            if (mOverrideValue != null) return true;
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                if (!mNext && changeIndex(mIndex - 1)) {
+                    mNext = true;
+                    // Give bigger delay so users can change only one step.
+                    mHandler.postDelayed(mRunnable, 300);
+                }
+            } else if (event.getAction() == MotionEvent.ACTION_UP
+                    || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                mNext = false;
+            }
+            return false;
+        }
+    };
+
+    OnTouchListener mPreviousTouchListener = new OnTouchListener() {
+        public boolean onTouch(View v, MotionEvent event) {
+            if (mOverrideValue != null) return true;
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                if (!mPrevious && changeIndex(mIndex + 1)) {
+                    mPrevious = true;
+                    // Give bigger delay so users can change only one step.
+                    mHandler.postDelayed(mRunnable, 300);
+                }
+            } else if (event.getAction() == MotionEvent.ACTION_UP
+                    || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                mPrevious = false;
+            }
+            return false;
+        }
+    };
 
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        mButton = (Button) findViewById(R.id.setting_button);
-        mButton.setOnClickListener(this);
+        mNextButton = (Button) findViewById(R.id.increment);
+        mNextButton.setOnTouchListener(mNextTouchListener);
+        mPrevButton = (Button) findViewById(R.id.decrement);
+        mPrevButton.setOnTouchListener(mPreviousTouchListener);
+        mEntry = (TextView) findViewById(R.id.current_setting);
     }
 
     @Override
-    public void initialize(ListPreference preference,
-            ViewGroup parent, OtherSettingsPopup parentPopup) {
-        LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(
-                Context.LAYOUT_INFLATER_SERVICE);
-        ViewGroup root = (ViewGroup) parent.getRootView().findViewById(R.id.frame_layout);
-        mPopup = (MiscSettingPopup) inflater.inflate(
-                R.layout.misc_setting_popup, root, false);
-
-        Context context = getContext();
-        CharSequence[] entries = preference.getEntries();
-
-        // Prepare the ListView.
-        ArrayList<HashMap<String, Object>> listItem =
-            new ArrayList<HashMap<String, Object>>();
-        for(int i = 0; i < entries.length; ++i) {
-            HashMap<String, Object> map = new HashMap<String, Object>();
-            map.put("text", entries[i].toString());
-            listItem.add(map);
-        }
-        SimpleAdapter adapter = new SimpleAdapter(context, listItem,
-                R.layout.setting_item,
-                new String[] {"text"},
-                new int[] {R.id.text});
-
-        mPopup.setTitle(preference.getTitle());
-        mPopup.setAdapter(adapter);
-        mPopup.setOnItemClickListener(mItemClickedListener);
-        root.addView(mPopup);
-
-        // Initialize parent later because it relies on mPopup existing
-        super.initialize(preference, parent, parentPopup);
+    public void initialize(ListPreference preference) {
+        super.initialize(preference);
+        // Add content descriptions for the increment and decrement buttons.
+        mNextButton.setContentDescription(getResources().getString(
+                R.string.accessibility_increment, mPreference.getTitle()));
+        mPrevButton.setContentDescription(getResources().getString(
+                R.string.accessibility_decrement, mPreference.getTitle()));
     }
 
     protected void updateView() {
         if (mOverrideValue == null) {
-            mButton.setText(mPreference.getEntry());
-            mButton.setEnabled(true);
-            mPopup.setSelection(mIndex);
+            mEntry.setText(mPreference.getEntry());
+            mNextButton.setVisibility(mIndex == 0 ? View.INVISIBLE : View.VISIBLE);
+            mPrevButton.setVisibility(mIndex == mPreference.getEntryValues().length - 1
+                    ? View.INVISIBLE : View.VISIBLE);
         } else {
             int index = mPreference.findIndexOfValue(mOverrideValue);
             if (index != -1) {
-                mButton.setText(mPreference.getEntries()[index]);
-                mButton.setEnabled(false);
+                mEntry.setText(mPreference.getEntries()[index]);
             } else {
                 // Avoid the crash if camera driver has bugs.
                 Log.e(TAG, "Fail to find override value=" + mOverrideValue);
                 mPreference.print();
             }
+            mNextButton.setVisibility(View.INVISIBLE);
+            mPrevButton.setVisibility(View.INVISIBLE);
         }
     }
 
@@ -133,50 +143,4 @@ public class InLineSettingKnob extends InLineSettingItem implements View.OnClick
         super.onPopulateAccessibilityEvent(event);
         event.getText().add(mPreference.getTitle() + mPreference.getEntry());
     }
-
-    @Override
-    public void setRotateOrientation(int orientation) {
-        super.setRotateOrientation(orientation);
-        if (mPopup != null) {
-            mPopup.setOrientation(orientation);
-        }
-    }
-
-    @Override
-    public void onClick(View v) {
-        mPopup.clearAnimation();
-        mPopup.startAnimation(mFadeIn);
-        mPopup.setVisibility(View.VISIBLE);
-
-        mParentPopup.clearAnimation();
-        mParentPopup.startAnimation(mFadeOut);
-        mParentPopup.setVisibility(View.GONE);
-    }
-
-    @Override
-    public boolean dismiss(boolean showParent) {
-        if (mPopup.isShown()) {
-            mPopup.clearAnimation();
-            mPopup.startAnimation(mFadeOut);
-            mPopup.setVisibility(View.GONE);
-
-            if (showParent) {
-                mParentPopup.clearAnimation();
-                mParentPopup.startAnimation(mFadeIn);
-                mParentPopup.setVisibility(View.VISIBLE);
-            }
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public AbstractSettingPopup getPopupWindow() {
-        if (mPopup != null && mPopup.isShown()) {
-            return mPopup;
-        } else {
-            return null;
-        }
-    }
-
 }

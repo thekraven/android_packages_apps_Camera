@@ -143,7 +143,7 @@ public class IndicatorControlWheel extends IndicatorControl implements
 
     private void changeIndicatorsLevel() {
         mPressedIndex = -1;
-        dismissSettingPopup(true);
+        dismissSettingPopup();
         mInAnimation = true;
         mAnimationStartTime = SystemClock.uptimeMillis();
         requestLayout();
@@ -275,7 +275,7 @@ public class IndicatorControlWheel extends IndicatorControl implements
                     injectMotionEvent(mPressedIndex, event, MotionEvent.ACTION_CANCEL);
                 } else {
                     // Cancel the popup if it is different from the selected.
-                    if (getSelectedIndicatorIndex() != index) dismissSettingPopup(true);
+                    if (getSelectedIndicatorIndex() != index) dismissSettingPopup();
                 }
                 if ((index != -1) && (action == MotionEvent.ACTION_MOVE)) {
                     if (mCurrentLevel != 0) {
@@ -529,7 +529,7 @@ public class IndicatorControlWheel extends IndicatorControl implements
     }
 
     public void onTouchOutBound() {
-        dismissSettingPopup(true);
+        dismissSettingPopup();
         if (mPressedIndex != -1) {
             injectMotionEvent(mPressedIndex, mLastMotionEvent, MotionEvent.ACTION_CANCEL);
             mPressedIndex = -1;

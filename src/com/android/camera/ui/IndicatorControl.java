@@ -155,9 +155,9 @@ public abstract class IndicatorControl extends RelativeLayout implements
         }
     }
 
-    public boolean dismissSettingPopup(boolean multiLevel) {
+    public boolean dismissSettingPopup() {
         for (AbstractIndicatorButton v: mIndicators) {
-            if (v.dismissPopup(multiLevel)) {
+            if (v.dismissPopup()) {
                 invalidate();
                 return true;
             }
