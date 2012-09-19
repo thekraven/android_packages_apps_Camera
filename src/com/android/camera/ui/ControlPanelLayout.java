@@ -19,6 +19,7 @@ package com.android.camera.ui;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
+import android.os.SystemProperties;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.widget.RelativeLayout;
@@ -61,7 +62,7 @@ public class ControlPanelLayout extends RelativeLayout {
         if (widthSpecSize > 0 && heightSpecSize > 0 && mode == MeasureSpec.AT_MOST) {
             // Calculate how big 4:3 preview occupies. Then deduct it from the
             // width of the parent.
-            measuredSize = (int) (longSideSize - shortSideSize / 3.0 * 4.0);
+            measuredSize = (int) (longSideSize - shortSideSize / 10.0 * 11.0);
         } else {
             Log.e(TAG, "layout_xxx of ControlPanelLayout should be wrap_content");
         }
