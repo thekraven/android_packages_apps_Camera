@@ -951,11 +951,7 @@ public class PanoramaActivity extends ActivityBase implements
 
     private void resetToPreview() {
         reset();
-        if (!mPausing) {
-           mMosaicView.onPause();
-		   mMosaicView.onResume();
-		   startCameraPreview();
-		}
+        if (!mPausing) startCameraPreview();
     }
 
     private void showFinalMosaic(Bitmap bitmap) {

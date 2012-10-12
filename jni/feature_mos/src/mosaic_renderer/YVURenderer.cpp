@@ -113,7 +113,6 @@ bool YVURenderer::DrawTexture()
 
         checkGlError("glDrawElements");
 
-		glFlush();
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         succeeded = true;
     } while (false);
@@ -156,6 +155,6 @@ const char* YVURenderer::FragmentShaderSource() const
         "  p = texture2D(s_texture, v_texCoord);\n"
         "  gl_FragColor[3] = dot(p, coeff_y);\n"
         "}\n";
-	
+
     return gFragmentShader;
 }

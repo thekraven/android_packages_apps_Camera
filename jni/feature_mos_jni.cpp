@@ -355,8 +355,8 @@ void ConvertYVUAiToPlanarYVU(unsigned char *planar, unsigned char *in, int width
     for (int i = 0; i < planeSize; i++)
     {
         *Yptr++ = *in++;
-        *Vptr++ = *in++ + 128; // Adjust for greenish tint
-		*Uptr++ = *in++ + 90;
+        *Vptr++ = *in++;
+        *Uptr++ = *in++;
         in++;   // Alpha
     }
 }

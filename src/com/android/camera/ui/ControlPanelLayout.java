@@ -62,7 +62,11 @@ public class ControlPanelLayout extends RelativeLayout {
         if (widthSpecSize > 0 && heightSpecSize > 0 && mode == MeasureSpec.AT_MOST) {
             // Calculate how big 4:3 preview occupies. Then deduct it from the
             // width of the parent.
-            measuredSize = (int) (longSideSize - shortSideSize / 4.0 * 5.0);
+            String density = SystemProperties.get("ro.sf.lcd_density");
+            if (density.equals("120"))
+                measuredSize = (int) (longSideSize - shortSideSize / 10.0 * 11.0);
+            else
+                measuredSize = (int) (longSideSize - shortSideSize / 3.0 * 4.0);
         } else {
             Log.e(TAG, "layout_xxx of ControlPanelLayout should be wrap_content");
         }
