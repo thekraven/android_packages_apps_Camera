@@ -327,6 +327,7 @@ public class PanoramaActivity extends ActivityBase implements
 
                         // Share popup may still have the reference to the old thumbnail. Clear it.
                         mSharePopup = null;
+						Log.v(TAG, "From MSG_RESET_TO_PREVIEW_WITH_THUMBNAIL");
                         resetToPreview();
                         break;
                     case MSG_GENERATE_FINAL_MOSAIC_ERROR:
@@ -346,6 +347,7 @@ public class PanoramaActivity extends ActivityBase implements
                         break;
                     case MSG_RESET_TO_PREVIEW:
                         onBackgroundThreadFinished();
+						Log.v(TAG, "From MSG_RESET_TO_PREVIEW");
                         resetToPreview();
                         break;
                     case MSG_CLEAR_SCREEN_DELAY:
@@ -366,6 +368,7 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private void releaseCamera() {
+	    Log.v(TAG, "releaseCamera");
         if (mCameraDevice != null) {
             mCameraDevice.setPreviewCallbackWithBuffer(null);
             CameraHolder.instance().release();
@@ -407,6 +410,7 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private void setupCaptureParams(Parameters parameters) {
+	    Log.v(TAG, "setupCaptureParams");
         List<Size> supportedSizes = parameters.getSupportedPreviewSizes();
         if (!findBestPreviewSize(supportedSizes, true, true)) {
             Log.w(TAG, "No 4:3 ratio preview size supported.");
@@ -417,6 +421,7 @@ public class PanoramaActivity extends ActivityBase implements
         }
         Log.v(TAG, "preview h = " + mPreviewHeight + " , w = " + mPreviewWidth);
         parameters.setPreviewSize(mPreviewWidth, mPreviewHeight);
+		Log.v(TAG, "calling getSupportedPreviewFpsRange()");
 
         List<int[]> frameRates = parameters.getSupportedPreviewFpsRange();
         if (frameRates != null) {
@@ -457,6 +462,7 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private boolean switchToOtherMode(int mode) {
+	    Log.v(TAG, "switchToOtherMode");
         if (isFinishing()) {
             return false;
         }
@@ -483,6 +489,7 @@ public class PanoramaActivity extends ActivityBase implements
                 // preview. Preview will be started after final mosaic is
                 // generated.
                 if (!mPausing && !mThreadRunning) {
+				    Log.v(TAG, "onMosaicSurfaceChanged: runOnUiThread");
                     startCameraPreview();
                 }
             }
@@ -497,8 +504,10 @@ public class PanoramaActivity extends ActivityBase implements
                 if (mSurfaceTexture != null) {
                     mSurfaceTexture.release();
                 }
+				Log.v(TAG, "Creating new SurfaceTexture: id: " + textureID);
                 mSurfaceTexture = new SurfaceTexture(textureID);
                 if (!mPausing) {
+				    Log.v(TAG, "Setting onFrameAvailableListener");
                     mSurfaceTexture.setOnFrameAvailableListener(PanoramaActivity.this);
                 }
             }
@@ -577,6 +586,7 @@ public class PanoramaActivity extends ActivityBase implements
 
     public void startCapture() {
         // Reset values so we can do this again.
+		Log.v(TAG, "startCapture");
         mCancelComputation = false;
         mTimeTaken = System.currentTimeMillis();
         mCaptureState = CAPTURE_STATE_MOSAIC;
@@ -598,7 +608,8 @@ public class PanoramaActivity extends ActivityBase implements
                 if (isFinished
                         || (Math.abs(accumulatedHorizontalAngle) >= DEFAULT_SWEEP_ANGLE)
                         || (Math.abs(accumulatedVerticalAngle) >= DEFAULT_SWEEP_ANGLE)) {
-                    stopCapture(false);
+                    Log.v(TAG, "mMosaicFrameProcessor.setProgressListener: calling stopCapture");
+					stopCapture(false);
                 } else {
                     float panningRateXInDegree = panningRateX * mHorizontalViewAngle;
                     float panningRateYInDegree = panningRateY * mVerticalViewAngle;
@@ -621,13 +632,16 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private void stopCapture(boolean aborted) {
+	    Log.v(TAG, "stopCapture: aborted: " + aborted);
         mCaptureState = CAPTURE_STATE_VIEWFINDER;
         mCaptureIndicator.setVisibility(View.GONE);
         hideTooFastIndication();
         hideDirectionIndicators();
+		Log.v(TAG, "About to enable mThumbnailView");
         mThumbnailView.setEnabled(true);
 
         mMosaicFrameProcessor.setProgressListener(null);
+		Log.v(TAG, "About to stop preview");
         stopCameraPreview();
 
         mSurfaceTexture.setOnFrameAvailableListener(null);
@@ -637,6 +651,7 @@ public class PanoramaActivity extends ActivityBase implements
             runBackgroundThread(new Thread() {
                 @Override
                 public void run() {
+				    Log.v(TAG, "About to generateFinalMosaic");
                     MosaicJpeg jpeg = generateFinalMosaic(false);
 
                     if (jpeg != null && jpeg.isValid) {
@@ -694,6 +709,7 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private void createContentView() {
+	    Log.v(TAG, "createContentView");
         setContentView(R.layout.panorama);
 
         mCaptureState = CAPTURE_STATE_VIEWFINDER;
@@ -775,6 +791,7 @@ public class PanoramaActivity extends ActivityBase implements
     public void onShutterButtonClick() {
         // If mSurfaceTexture == null then GL setup is not finished yet.
         // No buttons can be pressed.
+		Log.v(TAG, "onShutterButtonClick");
         if (mPausing || mThreadRunning || mSurfaceTexture == null) return;
         // Since this button will stay on the screen when capturing, we need to check the state
         // right now.
@@ -832,6 +849,7 @@ public class PanoramaActivity extends ActivityBase implements
 
     private void updateThumbnailButton() {
         // Update last image if URI is invalid and the storage is ready.
+		Log.v(TAG, "updateThumbnailButton");
         ContentResolver contentResolver = getContentResolver();
         if ((mThumbnail == null || !Util.isUriValid(mThumbnail.getUri(), contentResolver))) {
             mThumbnail = Thumbnail.getLastThumbnail(contentResolver,
@@ -851,6 +869,7 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     public void saveHighResMosaic() {
+	    Log.v(TAG, "saveHighResMosaic");
         runBackgroundThread(new Thread() {
             @Override
             public void run() {
@@ -902,11 +921,13 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private void onBackgroundThreadFinished() {
+	    Log.v(TAG, "onBackgroundThreadFinished");
         mThreadRunning = false;
         mRotateDialog.dismissDialog();
     }
 
     private void cancelHighResComputation() {
+	    Log.v(TAG, "cancelHighResComputation");
         mCancelComputation = true;
         synchronized (mWaitObject) {
             mWaitObject.notify();
@@ -915,17 +936,20 @@ public class PanoramaActivity extends ActivityBase implements
 
     @OnClickAttr
     public void onCancelButtonClicked(View v) {
+	    Log.v(TAG, "onCancelButtonClicked");
         if (mPausing || mSurfaceTexture == null) return;
         cancelHighResComputation();
     }
 
     @OnClickAttr
     public void onThumbnailClicked(View v) {
+	    Log.v(TAG, "onThumbnailClicked");
         if (mPausing || mThreadRunning || mSurfaceTexture == null) return;
         showSharePopup();
     }
 
     private void showSharePopup() {
+	    Log.v(TAG, "showSharePopup");
         if (mThumbnail == null) return;
         Uri uri = mThumbnail.getUri();
         if (mSharePopup == null || !uri.equals(mSharePopup.getUri())) {
@@ -938,6 +962,7 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private void reset() {
+	    Log.v(TAG, "reset");
         mCaptureState = CAPTURE_STATE_VIEWFINDER;
 
         mReviewLayout.setVisibility(View.GONE);
@@ -947,14 +972,24 @@ public class PanoramaActivity extends ActivityBase implements
         mMosaicFrameProcessor.reset();
 
         mSurfaceTexture.setOnFrameAvailableListener(this);
+		Log.v(TAG, "reset DONE");
     }
 
     private void resetToPreview() {
+	    Log.v(TAG, "resetToPreview E");
         reset();
-        if (!mPausing) startCameraPreview();
+        if (!mPausing) { 
+           /* TODO: Find a better solution instead of hack. */ 
+           mMosaicView.onPause(); 
+           mMosaicView.onResume(); 
+           startCameraPreview(); 
+        } 
+        Log.v(TAG, "resetToPreview X"); 
+
     }
 
     private void showFinalMosaic(Bitmap bitmap) {
+	    Log.v(TAG, "showFinalMosaic");
         if (bitmap != null) {
             mReview.setImageBitmap(bitmap);
         }
@@ -963,6 +998,7 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private Uri savePanorama(byte[] jpegData, int width, int height, int orientation) {
+	    Log.v(TAG, "savePanorama");
         if (jpegData != null) {
             String filename = PanoUtil.createName(
                     getResources().getString(R.string.pano_file_name_format), mTimeTaken);
@@ -986,6 +1022,7 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private static String getExifOrientation(int orientation) {
+	    Log.v(TAG, "getExifOrientation");
         switch (orientation) {
             case 0:
                 return String.valueOf(ExifInterface.ORIENTATION_NORMAL);
@@ -1001,11 +1038,14 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private void clearMosaicFrameProcessorIfNeeded() {
+	    Log.v(TAG, "clearMosaicFrameProcessorIfNeeded mThreadRunning:" + 
+              mThreadRunning + "mPausing: " + mPausing); 
         if (!mPausing || mThreadRunning) return;
         mMosaicFrameProcessor.clear();
     }
 
     private void initMosaicFrameProcessorIfNeeded() {
+	    Log.v(TAG, "initMosaicFrameProcessorIfNeeded");
         if (mPausing || mThreadRunning) return;
         if (mMosaicFrameProcessor == null) {
             // Start the activity for the first time.
@@ -1017,6 +1057,7 @@ public class PanoramaActivity extends ActivityBase implements
 
     @Override
     protected void onPause() {
+	    Log.v(TAG, "onPause");
         super.onPause();
 
         mPausing = true;
@@ -1040,6 +1081,7 @@ public class PanoramaActivity extends ActivityBase implements
 
     @Override
     protected void doOnResume() {
+	    Log.v(TAG, "doOnResume");
         mPausing = false;
         mOrientationEventListener.enable();
 
@@ -1074,6 +1116,7 @@ public class PanoramaActivity extends ActivityBase implements
      *         is an error in generating the final mosaic.
      */
     public MosaicJpeg generateFinalMosaic(boolean highRes) {
+	    Log.v(TAG, "generateFinalMosaic");
         int mosaicReturnCode = mMosaicFrameProcessor.createMosaic(highRes);
         if (mosaicReturnCode == Mosaic.MOSAIC_RET_CANCELLED) {
             return null;
@@ -1114,6 +1157,7 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private void setPreviewTexture(SurfaceTexture surface) {
+	    Log.v(TAG, "setPreviewTexture");
         try {
             mCameraDevice.setPreviewTexture(surface);
         } catch (Throwable ex) {
@@ -1125,6 +1169,7 @@ public class PanoramaActivity extends ActivityBase implements
     private void startCameraPreview() {
         // If we're previewing already, stop the preview first (this will blank
         // the screen).
+		Log.v(TAG, "startCameraPreview");
         if (mCameraState != PREVIEW_STOPPED) stopCameraPreview();
 
         // Set the display orientation to 0, so that the underlying mosaic library
@@ -1145,6 +1190,7 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private void stopCameraPreview() {
+	    Log.v(TAG, "stopCameraPreview");
         if (mCameraDevice != null && mCameraState != PREVIEW_STOPPED) {
             Log.v(TAG, "stopPreview");
             mCameraDevice.stopPreview();
@@ -1154,6 +1200,7 @@ public class PanoramaActivity extends ActivityBase implements
 
     @Override
     public void onUserInteraction() {
+	    Log.v(TAG, "onUserInteraction");
         super.onUserInteraction();
         if (mCaptureState != CAPTURE_STATE_MOSAIC) keepScreenOnAwhile();
     }
@@ -1167,17 +1214,20 @@ public class PanoramaActivity extends ActivityBase implements
     }
 
     private void resetScreenOn() {
+	    Log.v(TAG, "resetScreenOn");
         mMainHandler.removeMessages(MSG_CLEAR_SCREEN_DELAY);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     private void keepScreenOnAwhile() {
+	    Log.v(TAG, "keepScreenOnAwhile");
         mMainHandler.removeMessages(MSG_CLEAR_SCREEN_DELAY);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         mMainHandler.sendEmptyMessageDelayed(MSG_CLEAR_SCREEN_DELAY, SCREEN_DELAY);
     }
 
     private void keepScreenOn() {
+	    Log.v(TAG, "keepScreenOn");
         mMainHandler.removeMessages(MSG_CLEAR_SCREEN_DELAY);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
